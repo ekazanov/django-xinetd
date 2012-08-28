@@ -4,6 +4,7 @@ Script to deploy Django using xinetd.
 """
 
 import os, sys, re
+import mimetypes
 import django.core.handlers.wsgi
 from django.utils import importlib
 
@@ -58,17 +59,16 @@ request = HTTPRequest(request_text)
 if request.path.startswith(settings.STATIC_URL):
     url_path = request.path[len(settings.STATIC_URL):]
     file_path = os.path.join(settings.STATIC_ROOT,url_path)
-    
     fd = open(file_path,"r")
     file_content = fd.read()
     fd.close()
-
     sys.stdout.write("HTTP/1.1 200 OK")
-    # sys.stdout.write("Content-Type: text/html;")
+    file_mime_type,_ = mimetypes.guess_type(file_path)
+    content_type_hdr = "Content-Type: %s;" % file_mime_type
+    sys.stdout.write(content_type_hdr)
     sys.stdout.write("\r\n\r\n")
     sys.stdout.write(file_content)
     sys.stdout.write("\r\n")
-
     sys.exit(0)
 
 request_headers_lines = str(request.headers).split("\r\n")
@@ -116,10 +116,8 @@ def run_from_xinetd(application):
     headers_sent = []
 
     def write(data):
-
         if not headers_set:
              raise AssertionError("write() before start_response()")
-
         elif not headers_sent:
              # Before the first output, send the stored headers
              status, response_headers = headers_sent[:] = headers_set
@@ -141,7 +139,6 @@ def run_from_xinetd(application):
                 exc_info = None     # avoid dangling circular ref
         elif headers_set:
             raise AssertionError("Headers already set!")
-
         headers_set[:] = [status,response_headers]
         return write
     result = application(environ,start_response)
