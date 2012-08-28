@@ -12,13 +12,6 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "insert_your_project_name_here.s
 
 settings = importlib.import_module(os.environ["DJANGO_SETTINGS_MODULE"])
 
-def wr_dbg(in_str):
-    filename = "/tmp/x_py.log"
-    fd = open(filename,"a")
-    print >> fd, in_str,
-    fd.flush()
-    fd.close()
-
 def get_request():
     request = ""
     request_body = ""
@@ -62,16 +55,9 @@ class HTTPRequest(BaseHTTPRequestHandler):
 request = HTTPRequest(request_text)
 
 # Process static files
-wr_dbg("Request: " + request.path + "\n")
 if request.path.startswith(settings.STATIC_URL):
-    wr_dbg('This is static URL\n')
-    wr_dbg("PATH_INFO = " + request.path + "\n")
-    wr_dbg("settings.STATIC_URL = " + settings.STATIC_URL + "\n")
-    wr_dbg("settings.STATIC_ROOT = " + settings.STATIC_ROOT + "\n")
     url_path = request.path[len(settings.STATIC_URL):]
-    wr_dbg("url_path = " + url_path + "\n")
     file_path = os.path.join(settings.STATIC_ROOT,url_path)
-    wr_dbg("file_path = " + file_path + "\n")
     
     fd = open(file_path,"r")
     file_content = fd.read()
@@ -83,7 +69,6 @@ if request.path.startswith(settings.STATIC_URL):
     sys.stdout.write(file_content)
     sys.stdout.write("\r\n")
 
-    wr_dbg("!!!!!!!!!!!!!!!!!!!! EXIT \n")
     sys.exit(0)
 
 request_headers_lines = str(request.headers).split("\r\n")
