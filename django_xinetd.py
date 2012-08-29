@@ -57,9 +57,7 @@ if re.findall('\?',request_dict["PATH_INFO"]):
 def set_env_var_from_header(env_var_name,header_name,headers_dict):
     if headers_dict.has_key(header_name):
         os.environ[env_var_name] = headers_dict[header_name]
-        return
-    else:
-        return
+    return
 
 set_env_var_from_header("REQUEST_METHOD","REQUEST_METHOD",request_dict)
 set_env_var_from_header("SERVER_NAME","SERVER_NAME",request_dict)
