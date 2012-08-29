@@ -2,9 +2,14 @@
 """
 Script to deploy Django using xinetd.
 """
+# Tuple of statick files URLs
+STATIC_FILES = ("/favicon.ico",)
+# Document root absolute path. For static files like favicon.ico and so on.
+DOCUMENT_ROOT = '/home/evgeny/projects/079-django-tmpl-bin/www/insert_your_project_name_here/static/documentroot'
 
 import os, sys, re
 import mimetypes
+from StringIO import StringIO
 import django.core.handlers.wsgi
 from django.utils import importlib
 
@@ -17,7 +22,7 @@ def get_request():
     request = ""
     request_body = ""
     while True:
-        # GET headers 
+        # GET headers
         request += sys.stdin.readline()
         if request.endswith("\r\n\r\n") or request.endswith("\n\n"):
             break
@@ -30,36 +35,60 @@ def get_request():
             k,v = h.split(": ")
             if k == "Content-Length":
                 content_length = int(v)
-        request_body += sys.stdin.read(content_length) 
+        request_body += sys.stdin.read(content_length)
     return (request,request_body)
 
 request_text,request_body = get_request()
 
-# Request parsing code
-from BaseHTTPServer import BaseHTTPRequestHandler
-from StringIO import StringIO
+# Parse request
+request_dict = {}
+request_arr = request_text.split('\r\n')
+request_dict["REQUEST_METHOD"],request_dict["PATH_INFO"],request_dict["SERVER_PROTOCOL"] = request_arr[0].split(" ")
+for l in request_arr[1:]:
+    if len(l) == 0:
+        continue
+    k,v = l.split(": ")
+    request_dict[k] = v
+if request_dict.has_key('Host'):
+    request_dict["SERVER_NAME"],request_dict["SERVER_PORT"] = request_dict["Host"].split(":")
+if re.findall('\?',request_dict["PATH_INFO"]):
+    request_dict["PATH"],request_dict["QUERY_STRING"] = request_dict["PATH_INFO"].split('?')
 
-class HTTPRequest(BaseHTTPRequestHandler):
-    """
-    http://stackoverflow.com/questions/4685217/parse-raw-http-headers
-    """
-    def __init__(self, request_text):
-        self.rfile = StringIO(request_text)
-        self.raw_requestline = self.rfile.readline()
-        self.error_code = self.error_message = None
-        self.parse_request()
+def set_env_var_from_header(env_var_name,header_name,headers_dict):
+    if headers_dict.has_key(header_name):
+        os.environ[env_var_name] = headers_dict[header_name]
+        return
+    else:
+        return
 
-    def send_error(self, code, message):
-        self.error_code = code
-        self.error_message = message
-
-request = HTTPRequest(request_text)
+set_env_var_from_header("REQUEST_METHOD","REQUEST_METHOD",request_dict)
+set_env_var_from_header("SERVER_NAME","SERVER_NAME",request_dict)
+set_env_var_from_header("SERVER_PORT","SERVER_PORT",request_dict)
+set_env_var_from_header("PATH_INFO","PATH_INFO",request_dict)
+set_env_var_from_header("SERVER_PROTOCOL","SERVER_PROTOCOL",request_dict)
+set_env_var_from_header("QUERY_STRING","QUERY_STRING",request_dict)
+set_env_var_from_header("HTTP_COOKIE","Cookie",request_dict)
+set_env_var_from_header("CONTENT_LENGTH","Content-Length",request_dict)
+set_env_var_from_header("CONTENT_TYPE","Content-Type",request_dict)
 
 # Process static files
-if request.path.startswith(settings.STATIC_URL):
-    url_path = request.path[len(settings.STATIC_URL):]
+is_static = False
+for static_file in STATIC_FILES:
+    if request_dict["PATH_INFO"] == static_file:
+        is_static = True
+        file_path = os.path.join(DOCUMENT_ROOT,request_dict["PATH_INFO"])
+        break
+if request_dict["PATH_INFO"].startswith(settings.STATIC_URL):
+    is_static = True
+    url_path = request_dict["PATH_INFO"][len(settings.STATIC_URL):]
     file_path = os.path.join(settings.STATIC_ROOT,url_path)
-    fd = open(file_path,"r")
+if is_static:
+    try:
+        fd = open(file_path,"r")
+    except IOError:
+        sys.stdout.write("HTTP/1.1 404 Not Found")
+        sys.stdout.write("\r\n\r\n")
+        sys.exit(0)
     file_content = fd.read()
     fd.close()
     sys.stdout.write("HTTP/1.1 200 OK")
@@ -71,34 +100,7 @@ if request.path.startswith(settings.STATIC_URL):
     sys.stdout.write("\r\n")
     sys.exit(0)
 
-request_headers_lines = str(request.headers).split("\r\n")
-request_headers = {}
-for l in request_headers_lines:
-    if len(l) != 0:
-        k,v = l.split(": ")
-        request_headers[k] = v
-
-os.environ["SERVER_NAME"],os.environ["SERVER_PORT"] = request_headers["Host"].split(":")    
-os.environ["REQUEST_METHOD"] = request.command
-os.environ["PATH_INFO"] = request.path
-os.environ["SERVER_PROTOCOL"] = request.request_version
-if re.findall('\?',request.path):
-    path,query_str = request.path.split('?')
-    os.environ["QUERY_STRING"] = query_str
-
-def set_env_var_from_header(env_var_name,header_name,headers_dict):
-    if headers_dict.has_key(header_name):
-        os.environ[env_var_name] = headers_dict[header_name]
-        return
-    else:
-        return
-
-set_env_var_from_header("HTTP_COOKIE","Cookie",request_headers)
-set_env_var_from_header("CONTENT_LENGTH","Content-Length",request_headers)
-set_env_var_from_header("CONTENT_TYPE","Content-Type",request_headers)
-
 def run_from_xinetd(application):
-    
     environ                      = dict(os.environ.items())
     environ['wsgi.input']        = StringIO(request_body)
     environ['wsgi.errors']       = sys.stderr
@@ -106,7 +108,6 @@ def run_from_xinetd(application):
     environ['wsgi.multithread']  = False
     environ['wsgi.multiprocess'] = True
     environ['wsgi.run_once']     = True
-
     if environ.get('HTTPS','off') in ('on','1'):
         environ['wsgi.url_scheme'] = 'https'
     else:
