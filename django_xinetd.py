@@ -2,19 +2,19 @@
 """
 Script to deploy Django using xinetd.
 """
-# Tuple of statick files URLs
-STATIC_FILES = ("/favicon.ico",)
-# Document root absolute path. For static files like favicon.ico and so on.
-DOCUMENT_ROOT = '/home/evgeny/projects/079-django-tmpl-bin/www/insert_your_project_name_here/static/documentroot'
-
 import os, sys, re
 import mimetypes
 from StringIO import StringIO
 import django.core.handlers.wsgi
 from django.utils import importlib
 
-sys.path.append("/home/evgeny/projects/079-django-tmpl-bin/www/insert_your_project_name_here")
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "insert_your_project_name_here.settings")
+DOCUMENT_ROOT = "/home/evgeny/projects/079-django-tmpl-bin/www/insert_your_project_name_here/static/documentroot"
+STATIC_FILES = ["/favicon.ico","/robots.txt"]
+PROJECT_PATH = "/home/evgeny/projects/079-django-tmpl-bin/www/insert_your_project_name_here"
+DJANGO_SETTINGS_MODULE = "insert_your_project_name_here.settings"
+
+sys.path.append(PROJECT_PATH)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", DJANGO_SETTINGS_MODULE)
 
 settings = importlib.import_module(os.environ["DJANGO_SETTINGS_MODULE"])
 
@@ -74,7 +74,8 @@ is_static = False
 for static_file in STATIC_FILES:
     if request_dict["PATH_INFO"] == static_file:
         is_static = True
-        file_path = os.path.join(DOCUMENT_ROOT,request_dict["PATH_INFO"])
+        file_name = request_dict["PATH_INFO"].lstrip("/")
+        file_path = os.path.join(DOCUMENT_ROOT,file_name)
         break
 if request_dict["PATH_INFO"].startswith(settings.STATIC_URL):
     is_static = True
