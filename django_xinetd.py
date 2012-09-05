@@ -1,4 +1,4 @@
-#!/home/evgeny/projects/079-django-tmpl-bin/www/env/bin/python
+#!/usr/bin/python
 """
 Script to deploy Django using xinetd.
 """
@@ -8,9 +8,9 @@ from StringIO import StringIO
 import django.core.handlers.wsgi
 from django.utils import importlib
 
-DOCUMENT_ROOT = "/home/evgeny/projects/079-django-tmpl-bin/www/insert_your_project_name_here/static/documentroot"
+DOCUMENT_ROOT = "/path_to_your_project/insert_your_project_name_here/static/documentroot"
 STATIC_FILES = ["/favicon.ico","/robots.txt"]
-PROJECT_PATH = "/home/evgeny/projects/079-django-tmpl-bin/www/insert_your_project_name_here"
+PROJECT_PATH = "/path_to_your_project/insert_your_project_name_here"
 DJANGO_SETTINGS_MODULE = "insert_your_project_name_here.settings"
 
 sys.path.append(PROJECT_PATH)
