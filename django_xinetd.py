@@ -4,6 +4,8 @@ Script to deploy Django using xinetd.
 """
 import os, sys, re
 import mimetypes
+import logging
+import logging.handlers
 from StringIO import StringIO
 import django.core.handlers.wsgi
 from django.utils import importlib
@@ -12,20 +14,44 @@ DOCUMENT_ROOT = "/path_to_your_project/insert_your_project_name_here/static/docu
 STATIC_FILES = ["/favicon.ico","/robots.txt"]
 PROJECT_PATH = "/path_to_your_project/insert_your_project_name_here"
 DJANGO_SETTINGS_MODULE = "insert_your_project_name_here.settings"
+LOGGING_NAME = 'insert_your_logging_name'
+
+logger = logging.getLogger(LOGGING_NAME)
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.ERROR)
+formatter = logging.Formatter('%(process)s [%(levelname)s] %(name)s: %(message)s')
+handler = logging.handlers.SysLogHandler(address = '/dev/log')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+logger.debug("Start")
 
 sys.path.append(PROJECT_PATH)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", DJANGO_SETTINGS_MODULE)
 
-settings = importlib.import_module(os.environ["DJANGO_SETTINGS_MODULE"])
+try:
+    settings = importlib.import_module(os.environ["DJANGO_SETTINGS_MODULE"])
+except Exception, e:
+    logger.error("Can not import module: DJANGO_SETTINGS_MODULE")
+    logger.error("Exception: " + str(e))
+    logger.error("Exit")
+    sys.exit(1)
 
 def get_request():
+    logger.debug("get_request()")
     request = ""
     request_body = ""
+    new_line = ""
+    logger.debug("get_request() - Get headers start")
     while True:
         # GET headers
-        request += sys.stdin.readline()
+        new_line = sys.stdin.readline()
+        if new_line == "":
+            return(None,None)
+        request += new_line
         if request.endswith("\r\n\r\n") or request.endswith("\n\n"):
             break
+    logger.debug("get_request() - Get headers end")
     # Get content length
     if request.find("POST") != -1:
         headers = request.split("\r\n")
@@ -36,9 +62,21 @@ def get_request():
             if k == "Content-Length":
                 content_length = int(v)
         request_body += sys.stdin.read(content_length)
+    logger.debug("get_request() return")
     return (request,request_body)
 
-request_text,request_body = get_request()
+try:
+    request_text,request_body = get_request()
+except Exception, e:
+    logger.error("Can not get request")
+    logger.error("Exception: " + str(e))
+    logger.error("Exit")
+    sys.exit(1)
+
+if request_text == None:
+    logger.error("Can not get request")
+    logger.error("Exit")
+    sys.exit(1)
 
 # Parse request
 request_dict = {}
@@ -70,6 +108,7 @@ set_env_var_from_header("CONTENT_LENGTH","Content-Length",request_dict)
 set_env_var_from_header("CONTENT_TYPE","Content-Type",request_dict)
 
 # Process static files
+logger.debug("Process static files: Start")
 is_static = False
 for static_file in STATIC_FILES:
     if request_dict["PATH_INFO"] == static_file:
@@ -87,6 +126,8 @@ if is_static:
     except IOError:
         sys.stdout.write("HTTP/1.1 404 Not Found")
         sys.stdout.write("\r\n\r\n")
+        logger.debug("Static file reading error: " + file_name)
+        logger.debug("Exit")
         sys.exit(0)
     file_content = fd.read()
     fd.close()
@@ -97,9 +138,13 @@ if is_static:
     sys.stdout.write("\r\n\r\n")
     sys.stdout.write(file_content)
     sys.stdout.write("\r\n")
+    
+    logger.debug("Process static files: End")
+    logger.debug("Exit")
     sys.exit(0)
 
 def run_from_xinetd(application):
+    logger.debug("run_from_xinetd()")
     environ                      = dict(os.environ.items())
     environ['wsgi.input']        = StringIO(request_body)
     environ['wsgi.errors']       = sys.stderr
@@ -116,6 +161,7 @@ def run_from_xinetd(application):
     headers_sent = []
 
     def write(data):
+        logger.debug("write()")
         if not headers_set:
              raise AssertionError("write() before start_response()")
         elif not headers_sent:
@@ -130,6 +176,7 @@ def run_from_xinetd(application):
         sys.stdout.flush()
 
     def start_response(status,response_headers,exc_info=None):
+        logger.debug("start_response()")
         if exc_info:
             try:
                 if headers_sent:
@@ -152,4 +199,10 @@ def run_from_xinetd(application):
         if hasattr(result,'close'):
             result.close()
 
-run_from_xinetd(django.core.handlers.wsgi.WSGIHandler())
+try:
+    run_from_xinetd(django.core.handlers.wsgi.WSGIHandler())
+except Exception, e:
+    logger.error("Exception during run_from_xinetd()")
+    logger.error("Exception: " + str(e))
+    logger.error("Exit")
+    sys.exit(1)
