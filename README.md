@@ -43,7 +43,7 @@ If xinetd is not installed, install it. This is Debian/Ubuntu command:
 
 1. Copy django_xinetd.py file where you want to. Your project directory is a reasonably good place for it.
 1. Open script in your favorite text editor.
-1. Set hashbang string to your python path. If you use your system 
+1. Set shabang string to your python path. If you use your system 
    python it can be '/usr/bin/python'.
 1. Set DOCUMENT_ROOT variable to your document root.
 1. Set STATIC_FILES variable.
