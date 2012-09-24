@@ -60,7 +60,7 @@ for Debian). The 9002 port is used.
 
 Create /etc/xinetd.d/django_xinetd file:
 
-    `service django_xinetd
+    service django_xinetd
     {
     	disable		= no
     	socket_type	= stream
