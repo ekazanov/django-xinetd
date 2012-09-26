@@ -1,0 +1,4 @@
+** [2012-09-26 Wed] Using with Django 1.2, 1.3
+Add to settings.py after STATIC_URL and STATIC_ROOT:
+STATIC_URL = MEDIA_URL
+STATIC_ROOT = MEDIA_ROOT
