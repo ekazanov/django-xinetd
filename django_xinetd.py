@@ -126,7 +126,7 @@ if is_static:
     except IOError:
         sys.stdout.write("HTTP/1.1 404 Not Found")
         sys.stdout.write("\r\n\r\n")
-        logger.debug("Static file reading error: " + file_name)
+        logger.debug("Static file reading error: " + file_path)
         logger.debug("Exit")
         sys.exit(0)
     file_content = fd.read()
